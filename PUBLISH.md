@@ -1,6 +1,6 @@
 # 发布检查清单
 
-插件包名：`chuer-niang`，版本：`1.0.0`。
+插件包名：`chuer-niang`，版本：`1.0.1`。
 
 ## 1. 打 tarball
 
@@ -9,7 +9,7 @@ cd pet/plugin
 npm pack --pack-destination ../releases
 ```
 
-产物：`pet/releases/chuer-niang-1.0.0.tgz`。
+产物：`pet/releases/chuer-niang-1.0.1.tgz`。
 
 发布前检查 `npm pack --dry-run --json` 的文件列表，包里只应有：
 
@@ -17,14 +17,13 @@ npm pack --pack-destination ../releases
 - `cordis.patch.yml` / `package.json` / `README.md`
 - `persona.enc` / `persona.example.txt`
 - `locale/*.json` / `icon.png`
-- `assets/pet.webp` / `assets/pet-socks.webp`（公开占位图）
+- `assets/pet.webp` / `assets/pet-socks.webp`（已授权公开的默认形象）
 
 **不要**把这些放进发布包/仓库：
 
-- 真实照片：`%DSH_HOME%\photo-pet\pet.webp`、`pet-socks.webp`
 - 用户画像：`%DSH_HOME%\photo-pet\master.json`、`scan-index.json`、`scan-config.json`
 - 运行时状态：`%DSH_HOME%\photo-pet\affinity.json`、`state.json`
-- 本地预览：`pet/src/**`、`pet/assets/**`
+- 本地预览/原始素材：`pet/src/**`、`pet/assets/**`（发布版使用 `plugin/assets` 里的公开副本）
 
 仓库根 `.gitignore` 已经忽略 `/assets/`、`/src/` 和明文人设；`plugin/files` 白名单进一步保证 npm 包不包含私有数据。
 

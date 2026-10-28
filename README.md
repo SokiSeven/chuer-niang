@@ -4,7 +4,7 @@
 
 ![preview](plugin/assets/pet.webp)
 
-> 仓库/发布包里不包含真实用户照片：私人形象放在 `%DSH_HOME%\photo-pet\pet.webp`，由 Host 的 `/photo-pet/image` 读取；包内只有公开占位图。`master.json`、`affinity.json`、`scan-index.json` 等运行时数据也都在 DSH_HOME，不随包发布。
+> 仓库/发布包包含已授权公开的默认形象 `plugin/assets/pet.webp` / `pet-socks.webp`；本机 `%DSH_HOME%\photo-pet\` 里如果有私人形象，会优先显示本机版本。`master.json`、`affinity.json`、`scan-index.json` 等运行时数据仍然不随包发布。
 
 ## 现在有什么
 

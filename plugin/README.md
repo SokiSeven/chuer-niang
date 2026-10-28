@@ -21,10 +21,12 @@ HTTPS 不通时用 `git clone git@github.com:SokiSeven/chuer-niang.git`。
 
 ## 私有数据
 
-发布包里**不包含**真实用户照片、`master.json`、`affinity.json`、`scan-index.json`、`state.json` 或本地路径。运行时数据都在 `%DSH_HOME%\photo-pet\`。
+发布包包含已授权公开的默认形象 `assets/pet.webp` / `assets/pet-socks.webp`，以及加密人设 `persona.enc`。
+
+发布包里**不包含** `master.json`、`affinity.json`、`scan-index.json`、`state.json` 或本地路径。运行时数据都在 `%DSH_HOME%\photo-pet\`。
 
 - 私人形象：放 `%DSH_HOME%\photo-pet\pet.webp`（可选 `pet-socks.webp`），Host 的 `/photo-pet/image` 会优先读取；
-- 没有私人形象时显示包内公开占位图；
+- 没有私人形象时使用包内默认形象；
 - 文档扫描器默认只把 summary 写进本机 `master.json`，不会随包上传。
 
 ## 人设
