@@ -5,9 +5,10 @@ persona.txt
 # Runtime affection state, not source.
 plugin/affinity.json
 
-# Private photo assets / previews: never commit or publish these.
-/assets/
+# Private previews / debug crops only.
 /src/
+
+# pet/assets is intentionally public: it is the authorized raw pet artwork.
 
 # persona.enc is intentionally committed: it is AES-256-GCM ciphertext,
 # base64url-wrapped, with the key split inside persona-crypto.mjs.

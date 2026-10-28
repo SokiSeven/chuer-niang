@@ -177,14 +177,16 @@ pet/
     start-pet.vbs
     start-pet-debug.cmd
   client.template.js      # client.js 源模板
+  assets/                 # 已授权公开的原始素材（pet.png/webp + pet-socks）
+  src/                    # 本地调试中间图（不公开）
 ```
 
 ## 换成自己的照片
 
-把抠好的透明 WebP 放到 `%DSH_HOME%\photo-pet\pet.webp`（白袜版放 `pet-socks.webp`）即可，Host 的 `/photo-pet/image` 会自动优先读取；没有就使用 `plugin/assets` 里的已授权默认形象。原始私人照片不需要、也不会自动进仓库；发布版用的是 `plugin/assets` 里的公开副本。
+把抠好的透明 WebP 放到 `%DSH_HOME%\photo-pet\pet.webp`（白袜版放 `pet-socks.webp`）即可，Host 的 `/photo-pet/image` 会自动优先读取；没有就使用 `plugin/assets` 里的默认形象。仓库里的 `assets/` 是这套授权公开的原始素材；`src/` 调试中间图不公开。
 
 ## 说明
 
-- 没有使用 Live2D，也没有使用任何第三方角色素材；默认公开形象已授权随包发布，原始私人素材仍在 `%DSH_HOME%`。
+- 没有使用 Live2D，也没有使用任何第三方角色素材；`assets/` 原始素材和 `plugin/assets/` 默认形象都已授权公开，`src/` 里的调试中间图不公开。
 - 抠图模型 RMBG-1.4 只在本机跑，模型权重不随插件分发；其许可为非商业使用，个人桌宠没问题。
 - 视觉验证受限于当前没有浏览器控制能力：已做语法检查、清单校验和 `shell.overlay` 活体槽位确认；实际渲染请以界面为准。
