@@ -1,6 +1,6 @@
 # 发给别的 DeepSeek / DSH Agent 的安装 Prompt
 
-把下面整段复制给对方的 DSH Agent（需要能执行命令）。发布前把 `<GITHUB_USER>`、`<REPO>` 换成你的实际仓库；如果已发 npm，优先用 npm 方式。
+把下面整段复制给对方的 DSH Agent（需要能执行命令）。
 
 ---
 
@@ -11,16 +11,20 @@
 1. 先检查当前环境的 DSH 插件命令和 profile：
    - 运行 `dsh plugin --help`；
    - 确认用 `--profile web` 还是当前默认 profile。
-2. 优先从 npm 安装：
+2. 从 GitHub 安装（推荐）：
+   ```bash
+   git clone https://github.com/SokiSeven/chuer-niang.git
+   dsh plugin --profile web add chuer-niang/plugin
+   ```
+   如果 HTTPS 不通，用 SSH：
+   ```bash
+   git clone git@github.com:SokiSeven/chuer-niang.git
+   dsh plugin --profile web add chuer-niang/plugin
+   ```
+3. 如果 npm 包已经发布，也可以：
    ```bash
    dsh plugin --profile web add chuer-niang
    ```
-3. 如果 npm 包还不存在，改从 GitHub 安装：
-   ```bash
-   git clone https://github.com/<GITHUB_USER>/<REPO>.git
-   dsh plugin --profile web add <REPO>/pet/plugin
-   ```
-   如果仓库根目录就是插件所在的 `pet/`，把路径改成 `<REPO>/plugin`。
 4. 安装后：
    - 刷新 DSH 页面（Ctrl+R / Cmd+R）；必要时重启 DSH；
    - 确认设置 → 插件里「雏儿娘」已启用；

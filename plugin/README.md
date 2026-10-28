@@ -8,11 +8,14 @@
 dsh plugin --profile web add chuer-niang
 ```
 
-或从 GitHub 安装（把 `<user>/<repo>` 换成实际仓库）：
+或从 GitHub 安装：
 
 ```bash
-dsh plugin --profile web add github:<user>/<repo>#path:/plugin
+git clone https://github.com/SokiSeven/chuer-niang.git
+dsh plugin --profile web add chuer-niang/plugin
 ```
+
+HTTPS 不通时用 `git clone git@github.com:SokiSeven/chuer-niang.git`。
 
 装好后刷新 DSH，插件会出现在 `shell.overlay`。
 

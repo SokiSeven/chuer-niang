@@ -44,14 +44,16 @@ dsh plugin --profile web add chuer-niang
 
 ## 3. 发到 GitHub
 
-把仓库推到 GitHub（确保 `pet/src`、`pet/assets` 没有被提交），然后让用户：
+仓库地址：`https://github.com/SokiSeven/chuer-niang`（SSH：`git@github.com:SokiSeven/chuer-niang.git`）。
+
+把仓库推上去后，用户安装：
 
 ```bash
-git clone https://github.com/<user>/<repo>.git
-dsh plugin --profile web add <repo>/pet/plugin
+git clone https://github.com/SokiSeven/chuer-niang.git
+dsh plugin --profile web add chuer-niang/plugin
 ```
 
-如果仓库根目录就是 `pet/`，路径改成 `<repo>/plugin`。
+HTTPS 不通时用 SSH 克隆。
 
 ## 4. 上 DSH 插件市场/索引
 
