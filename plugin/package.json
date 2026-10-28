@@ -1,0 +1,37 @@
+{
+  "name": "chuer-niang",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "雏儿娘：DSH Web UI 照片桌宠，带好感度、钱包、段位、白袜和用户画像记忆。",
+  "license": "MIT",
+  "keywords": ["dsh", "plugin", "desktop-pet", "photo", "chuer-niang"],
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.png"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.png",
+    "persona.example.txt",
+    "persona.enc",
+    "persona-crypto.mjs",
+    "scanner.mjs",
+    "assets/*.webp",
+    "README.md"
+  ],
+  "icon": "./icon.png",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true
+    }
+  }
+}

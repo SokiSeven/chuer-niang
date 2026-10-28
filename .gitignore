@@ -1,0 +1,14 @@
+# Plaintext persona should never be committed.
+plugin/persona.txt
+persona.txt
+
+# Runtime affection state, not source.
+plugin/affinity.json
+
+# Private photo assets / previews: never commit or publish these.
+/assets/
+/src/
+
+# persona.enc is intentionally committed: it is AES-256-GCM ciphertext,
+# base64url-wrapped, with the key split inside persona-crypto.mjs.
+# This only hides it from casual browsing/search, not from a determined reader.
