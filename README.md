@@ -141,7 +141,7 @@ dsh plugin --profile desktop remove chuer-niang
 1. **抠图**：本地跑 RMBG-1.4（Bria）ONNX，得到人物 alpha；再用 GrabCut 的 trimap 思路 + 手工多边形/颜色阈值清掉照片里的塑料袋、粉色衣架条等残留。
 2. **贴纸化**：alpha 膨胀 7px 生成白色描边，裁到内容边界，缩到 760px 高（显示时 380px，2x 屏也清楚），压成 WebP（约 39KB）。
 3. **插件**：`shell.overlay` 槽位里渲染一个 fixed 容器；React + CSS 动画；`useSessionStatus` 驱动三种状态；SVG/emoji 徽标与气泡用 DSH 主题 token 取色。
-4. **打包**：客户端图片通过 Host 的 `/photo-pet/image` 读取，包内只带公开占位图；私人照片和运行时数据放 `%DSH_HOME%\photo-pet`，不进仓库/发布包。
+4. **打包**：客户端图片通过 Host 的 `/photo-pet/image` 读取；包内带已授权公开的默认形象，本机 `%DSH_HOME%\photo-pet` 里的私人照片优先。`master.json` 等运行时数据不进仓库/发布包。
 
 ## 文件
 
@@ -158,7 +158,7 @@ pet/
     client.js             # 浏览器半区：桌宠本体（图片走 /photo-pet/image）
     icon.png
     locale/{zh,en}.json
-    assets/pet.webp       # 公开占位形象
+    assets/pet.webp       # 已授权公开的默认形象
     assets/pet-socks.webp
   tools/
     seal-persona.mjs      # 明文 -> plugin/persona.enc
@@ -172,10 +172,10 @@ pet/
 
 ## 换成自己的照片
 
-把抠好的透明 WebP 放到 `%DSH_HOME%\photo-pet\pet.webp`（白袜版放 `pet-socks.webp`）即可，Host 的 `/photo-pet/image` 会自动优先读取；没有就显示 `plugin/assets` 里的公开占位图。**不需要**把照片重新 base64 塞进 `client.js`，也不会进发布包。
+把抠好的透明 WebP 放到 `%DSH_HOME%\photo-pet\pet.webp`（白袜版放 `pet-socks.webp`）即可，Host 的 `/photo-pet/image` 会自动优先读取；没有就使用 `plugin/assets` 里的已授权默认形象。原始私人照片不需要、也不会自动进仓库；发布版用的是 `plugin/assets` 里的公开副本。
 
 ## 说明
 
-- 没有使用 Live2D，也没有使用任何第三方角色素材；默认公开图是占位形象，真实照片只存在本机 DSH_HOME。
+- 没有使用 Live2D，也没有使用任何第三方角色素材；默认公开形象已授权随包发布，原始私人素材仍在 `%DSH_HOME%`。
 - 抠图模型 RMBG-1.4 只在本机跑，模型权重不随插件分发；其许可为非商业使用，个人桌宠没问题。
 - 视觉验证受限于当前没有浏览器控制能力：已做语法检查、清单校验和 `shell.overlay` 活体槽位确认；实际渲染请以界面为准。

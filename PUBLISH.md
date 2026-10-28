@@ -64,10 +64,10 @@ HTTPS 不通时用 SSH 克隆。
 
 ## 5. 本地分享 tarball
 
-对方拿到 `chuer-niang-1.0.0.tgz` 后：
+对方拿到 `chuer-niang-1.0.1.tgz` 后：
 
 ```bash
-dsh plugin --profile web add file:<绝对路径>/chuer-niang-1.0.0.tgz
+dsh plugin --profile web add file:<绝对路径>/chuer-niang-1.0.1.tgz
 ```
 
 ## 6. 发布后验证
@@ -77,4 +77,4 @@ curl http://127.0.0.1:64480/photo-pet/image?kind=pet -o /tmp/pet.webp
 dsh plugin --profile web list
 ```
 
-刷新 DSH，确认 `shell.overlay` 出现桌宠；没有私人照片时应显示公开占位图，而不是你的照片。
+刷新 DSH，确认 `shell.overlay` 出现桌宠；默认会显示包内已授权公开的形象，本机有私人照片时优先显示私人照片。
