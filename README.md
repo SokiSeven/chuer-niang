@@ -6,6 +6,15 @@
 
 > 仓库/发布包包含已授权公开的默认形象 `plugin/assets/pet.webp` / `pet-socks.webp`；本机 `%DSH_HOME%\photo-pet\` 里如果有私人形象，会优先显示本机版本。`master.json`、`affinity.json`、`scan-index.json` 等运行时数据仍然不随包发布。
 
+## 安装
+
+```bash
+git clone https://github.com/SokiSeven/chuer-niang.git
+dsh plugin --profile web add chuer-niang/plugin
+```
+
+HTTPS 不通时用 `git clone git@github.com:SokiSeven/chuer-niang.git`。装好后刷新 DSH。
+
 ## 现在有什么
 
 - **位置**：右下角，380px 高；可拖动，位置记在 localStorage。

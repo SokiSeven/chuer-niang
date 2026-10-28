@@ -10,8 +10,8 @@ Add-Type -MemberDefinition @'
 
 $ErrorActionPreference = 'Stop'
 $script:root = Split-Path -Parent $PSScriptRoot
-$script:imagePath = Join-Path $script:root 'assets\pet.png'
-$script:socksImagePath = Join-Path $script:root 'assets\pet-socks.png'
+$script:imagePath = Join-Path $PSScriptRoot 'assets\pet.png'
+$script:socksImagePath = Join-Path $PSScriptRoot 'assets\pet-socks.png'
 $script:showingSocks = $false
 $script:stateDir = Join-Path $env:APPDATA 'photo-pet'
 $script:statePath = Join-Path $script:stateDir 'desktop.json'

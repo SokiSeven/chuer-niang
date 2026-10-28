@@ -4,6 +4,15 @@
   "type": "module",
   "description": "雏儿娘：DSH Web UI 照片桌宠，带好感度、钱包、段位、白袜和用户画像记忆。",
   "license": "MIT",
+  "author": "SokiSeven",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SokiSeven/chuer-niang.git"
+  },
+  "homepage": "https://github.com/SokiSeven/chuer-niang#readme",
+  "bugs": {
+    "url": "https://github.com/SokiSeven/chuer-niang/issues"
+  },
   "keywords": ["dsh", "plugin", "desktop-pet", "photo", "chuer-niang"],
   "exports": {
     ".": "./index.js",
@@ -22,7 +31,8 @@
     "persona-crypto.mjs",
     "scanner.mjs",
     "assets/*.webp",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "icon": "./icon.png",
   "dsh": {

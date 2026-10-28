@@ -38,7 +38,7 @@
 - 透明背景，窗口始终 `Topmost`，任务栏和 Alt+Tab 里不显示；
 - 窗口矩形范围（约 380×470）会挡住下面应用的点击；目前没有做逐像素点击穿透；
 - DSH 开着时好感度就是 `%DSH_HOME%\photo-pet\affinity.json` 那份；好感 100 时桌面版会自动换成白袜图；DSH 没开时用 `%APPDATA%\photo-pet\desktop.json` 里的本地值；
-- 形象图用的是 `../assets/pet.png`，换图直接替换这个文件再重启即可；
+- 形象图用的是 `desktop/assets/pet.png`（白袜版 `pet-socks.png`），换图直接替换这两个文件再重启即可；
 - 换 DSH 端口：给脚本传 `-DshUrl http://127.0.0.1:你的端口`（需要自己改启动命令）。
 
 ## 文件

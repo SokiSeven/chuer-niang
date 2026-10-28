@@ -4,11 +4,7 @@
 
 ## 安装
 
-```bash
-dsh plugin --profile web add chuer-niang
-```
-
-或从 GitHub 安装：
+从 GitHub 安装：
 
 ```bash
 git clone https://github.com/SokiSeven/chuer-niang.git
@@ -16,6 +12,12 @@ dsh plugin --profile web add chuer-niang/plugin
 ```
 
 HTTPS 不通时用 `git clone git@github.com:SokiSeven/chuer-niang.git`。
+
+发布 npm 后也可以：
+
+```bash
+dsh plugin --profile web add chuer-niang
+```
 
 装好后刷新 DSH，插件会出现在 `shell.overlay`。
 
