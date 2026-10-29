@@ -1,5 +1,8 @@
 # 雏儿娘 · chuer-niang
 
+> **1.1.0**：新增批量摘要、具体记忆召回、气泡接话、记忆管理、短期心情和衣柜。安装与当前行为以 [plugin/README.md](plugin/README.md) 为准；变更见 [CHANGELOG.md](CHANGELOG.md)。
+
+
 一个可发布的 DSH Web 桌宠插件：照片形象、好感度、钱包、段位、白袜、LLM 自言自语和用户画像记忆。
 
 ![preview](plugin/assets/pet.webp)

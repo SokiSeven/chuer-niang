@@ -1,315 +1,463 @@
-import { mkdir, open, readFile, readdir, rename, stat, unlink, writeFile } from 'node:fs/promises';
-import { basename, dirname, extname, join } from 'node:path';
+import { open, readFile, readdir, stat, unlink, mkdir } from 'node:fs/promises';
+import { unlinkSync } from 'node:fs';
+import { dirname, basename, extname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
+import { pathToFileURL } from 'node:url';
+import { atomicJson, readJson, compact, digest, memoryId, buildProfile } from './memory.mjs';
 
 const DSH_HOME = process.env.DSH_HOME || join(homedir(), '.dsh');
 const DATA_DIR = join(DSH_HOME, 'photo-pet');
 const CONFIG_PATH = join(DATA_DIR, 'scan-config.json');
 const INDEX_PATH = join(DATA_DIR, 'scan-index.json');
 const MASTER_PATH = join(DATA_DIR, 'master.json');
+const COMPANION_PATH = join(DATA_DIR, 'companion.json');
 const LOCK_PATH = join(DATA_DIR, 'scanner.lock');
-const ROOT = process.env.PHOTO_PET_SCAN_ROOT || process.cwd();
-const HOME = process.env.USERPROFILE || homedir();
 const DSH_URL = String(process.env.PHOTO_PET_DSH_URL || '').replace(/\/$/, '');
-const ONCE = process.env.PHOTO_PET_SCAN_ONCE === '1';
-
+const HOME = process.env.USERPROFILE || homedir();
 const DEFAULT_ROOTS = [
-  ROOT,
-  join(HOME, 'Documents'),
-  join(HOME, 'Desktop'),
-  join(HOME, 'Downloads'),
-].filter(Boolean);
-
-const DEFAULT_CONFIG = {
+  process.env.PHOTO_PET_SCAN_ROOT || process.cwd(),
+  ...['Documents', 'Desktop', 'Downloads'].map((x) => join(HOME, x)),
+];
+export const DEFAULT_CONFIG = {
+  version: 2,
   roots: DEFAULT_ROOTS,
   extensions: ['.md', '.markdown', '.txt', '.rst', '.adoc', '.csv', '.log'],
+  filesPerSecond: 20,
   maxFileSize: 262144,
-  delayMs: 300,
-  batchSleepMs: 3000,
-  idleMs: 120000,
-  maxFilesPerPass: 500,
+  maxFilesPerPass: 2000,
+  idleMs: 5000,
+  summaryBatchSize: 6,
+  maxMemories: 10000,
 };
-
 const SKIP_DIRS = new Set([
-  'node_modules', '.git', '.svn', '.hg', 'dist', 'build', 'out', 'coverage',
-  '.venv', 'venv', '__pycache__', '.cache', '.npm', '.pnpm-store', 'AppData',
-  '.dsh', 'attachments', '.idea', '.vscode', 'target', '.next', '.nuxt',
-  'package.nw', 'resources', 'vendor', 'lib', 'libs', 'js', 'code', 'app.asar',
-  'WeChat', '微信web开发者工具', 'Program Files', 'Windows', 'Microsoft',
+  'node_modules',
+  '.git',
+  '.svn',
+  '.hg',
+  'dist',
+  'build',
+  'out',
+  'coverage',
+  '.venv',
+  'venv',
+  '__pycache__',
+  '.cache',
+  '.npm',
+  '.pnpm-store',
+  'AppData',
+  '.dsh',
+  'attachments',
+  '.idea',
+  '.vscode',
+  'target',
+  '.next',
+  '.nuxt',
+  'package.nw',
+  'resources',
+  'vendor',
+  'lib',
+  'libs',
+  'js',
+  'code',
+  'app.asar',
+  'WeChat',
+  '微信web开发者工具',
+  'Program Files',
+  'Windows',
+  'Microsoft',
 ]);
 
 const SKIP_NAMES = new Set([
-  'persona.enc', 'persona.txt', '.credentials.yaml', 'id_rsa', 'id_ed25519',
-  'scanner.lock', 'scan-index.json', 'master.json', 'state.json', 'affinity.json',
-  'client.js', 'client.template.js', 'LICENSE', 'LICENSE.txt', 'LICENSE.md',
-  'COPYING', 'NOTICE',
+  'persona.enc',
+  'persona.txt',
+  '.credentials.yaml',
+  'id_rsa',
+  'id_ed25519',
+  'scanner.lock',
+  'scan-index.json',
+  'master.json',
+  'state.json',
+  'affinity.json',
+  'client.js',
+  'client.template.js',
+  'LICENSE',
+  'LICENSE.txt',
+  'LICENSE.md',
+  'COPYING',
+  'NOTICE',
 ]);
 
-let stopping = false;
-let lockHeld = false;
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+SKIP_NAMES.add('companion.json');
+export function normalizeConfig(saved = {}) {
+  const bounded = (v, fallback, min, max) =>
+    Number.isFinite(Number(v)) ? Math.max(min, Math.min(max, Number(v))) : fallback;
+  return {
+    ...DEFAULT_CONFIG,
+    ...saved,
+    version: 2,
+    roots: Array.isArray(saved.roots)
+      ? saved.roots.filter((x) => typeof x === 'string' && x.trim()).map((x) => resolve(x))
+      : DEFAULT_ROOTS,
+    extensions: Array.isArray(saved.extensions)
+      ? saved.extensions.filter((x) => typeof x === 'string').map((x) => x.toLowerCase())
+      : DEFAULT_CONFIG.extensions,
+    filesPerSecond: bounded(saved.filesPerSecond, 20, 1, 20),
+    maxFileSize: bounded(saved.maxFileSize, 262144, 1, 1048576),
+    maxFilesPerPass: bounded(
+      saved.version !== 2 && saved.maxFilesPerPass === 500 ? 2000 : saved.maxFilesPerPass,
+      2000,
+      1,
+      20000
+    ),
+    idleMs: bounded(
+      saved.version !== 2 && saved.idleMs === 120000 ? 5000 : saved.idleMs,
+      5000,
+      100,
+      120000
+    ),
+    summaryBatchSize: Math.floor(bounded(saved.summaryBatchSize, 6, 1, 6)),
+    maxMemories: Math.floor(bounded(saved.maxMemories, 10000, 100, 20000)),
+  };
 }
-
-async function loadJson(path, fallback) {
-  try {
-    return JSON.parse(await readFile(path, 'utf8'));
-  } catch {
-    return fallback;
-  }
+async function config() {
+  const saved = await readJson(CONFIG_PATH, {});
+  const current = normalizeConfig(saved);
+  if (saved.version !== 2) await atomicJson(CONFIG_PATH, current);
+  return current;
 }
-
-async function saveJson(path, value) {
-  await mkdir(DATA_DIR, { recursive: true });
-  const temp = `${path}.tmp`;
-  await writeFile(temp, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
-  await rename(temp, path);
+export function allowedFile(name, options) {
+  return (
+    !name.startsWith('.') &&
+    !SKIP_NAMES.has(name) &&
+    !/(credential|secret|password|token|private[-_]?key)/i.test(name) &&
+    options.extensions.includes(extname(name).toLowerCase())
+  );
 }
-
-async function ensureConfig() {
-  await mkdir(DATA_DIR, { recursive: true });
-  const existing = await loadJson(CONFIG_PATH, null);
-  if (existing && Array.isArray(existing.roots) && existing.roots.length) return existing;
-  await saveJson(CONFIG_PATH, DEFAULT_CONFIG);
-  return { ...DEFAULT_CONFIG };
-}
-
-function allowedFile(name, config) {
-  if (SKIP_NAMES.has(name)) return false;
-  if (name.startsWith('.')) return false;
-  return config.extensions.includes(extname(name).toLowerCase());
-}
-
-async function collectFiles(config) {
-  const files = [];
-  const stack = [...config.roots];
+async function* walk(options) {
+  const queue = [...new Set(options.roots)];
   const visited = new Set();
-  let dirs = 0;
-  const deadline = Date.now() + 30000;
-  while (stack.length && files.length < 5000 && Date.now() < deadline) {
-    const dir = stack.pop();
-    if (!dir || visited.has(dir)) continue;
+  for (let at = 0; at < queue.length; at++) {
+    const dir = queue[at];
+    if (visited.has(dir)) continue;
     visited.add(dir);
-    dirs += 1;
-    if (dirs > 2000) break;
     let entries;
     try {
       entries = await readdir(dir, { withFileTypes: true });
     } catch {
       continue;
     }
-    for (const entry of entries.slice(0, 500)) {
+    for (const entry of entries) {
       const full = join(dir, entry.name);
-      if (entry.isDirectory()) {
-        if (!SKIP_DIRS.has(entry.name) && !entry.name.startsWith('.')) stack.push(full);
-      } else if (entry.isFile() && allowedFile(entry.name, config)) {
-        files.push(full);
-      }
+      if (
+        entry.isDirectory() &&
+        !entry.name.startsWith('.') &&
+        !SKIP_DIRS.has(entry.name) &&
+        resolve(full) !== resolve(DATA_DIR)
+      )
+        queue.push(full);
+      else if (entry.isFile() && allowedFile(entry.name, options)) yield full;
     }
-    await sleep(10);
+    await new Promise((r) => setImmediate(r));
   }
-  return files;
 }
-
-function cleanSummary(text, name) {
-  const lines = text
-    .replace(/\r/g, '')
-    .replace(/\t/g, ' ')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .slice(0, 20);
-  const flat = lines.join(' ').replace(/\s+/g, ' ').trim();
-  return `${name}: ${flat.slice(0, 220)}`;
-}
-
-function buildProfile(master) {
-  const entries = Object.entries(master.files || {}).slice(-300);
-  const docs = entries.filter(([path]) => /\.(md|markdown|txt|log|csv)$/i.test(path));
-  const selected = docs.length ? docs : entries;
-  const text = selected.map(([path, info]) => `${basename(path)} ${info.summary || ''}`).join(' ');
-  const words = text.match(/[\u4e00-\u9fa5]{2,6}|[A-Za-z][A-Za-z0-9_+-]{2,}/g) || [];
-  const stop = new Set([
-    'the', 'and', 'for', 'with', 'this', 'that', 'from', '一个', '我们', '可以', '这个',
-    '进行', '以及', '没有', '就是', '什么', '因为', '所以', '如果', '然后', '他们',
-    '文件', '文档', '使用', '需要', '已经', '还是', '不是', '可能', '自己', '现在',
-    'import', 'const', 'function', 'return', 'require', 'module', 'exports', 'react',
-    'node', 'mjs', 'client', 'readfile', 'writefile', 'window', 'document', 'data',
-    'base64', 'webp', 'png', 'true', 'false', 'null', 'undefined', 'JSON', 'http',
-    'license', 'mit', 'readme', 'copyright', 'permission', 'software', 'version',
-    'package', 'code', 'this', 'file',
-  ]);
-  const counts = new Map();
-  for (const word of words) {
-    if (stop.has(word.toLowerCase())) continue;
-    counts.set(word, (counts.get(word) || 0) + 1);
-  }
-  const top = [...counts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 12)
-    .map(([word]) => word);
-  const recent = selected
-    .slice(-6)
-    .map(([path]) => basename(path))
-    .filter(Boolean);
-  const total = Object.keys(master.files || {}).length;
-  const summary = `已了解 ${total} 个文档。常见主题：${top.join('、') || '暂无'}。最近看过：${recent.join('、') || '暂无'}。`;
-  const short = `兴趣：${top.slice(0, 6).join('、') || '暂无'}；最近：${recent.slice(0, 3).join('、') || '暂无'}`;
-  return {
-    summary: summary.slice(0, 500),
-    short: short.slice(0, 180),
-    topics: top,
-    recent,
-    attributes: {
-      interests: top.slice(0, 8),
-      recent: recent.slice(0, 5),
-      summary: short.slice(0, 180),
-    },
-    total,
-    updatedAt: new Date().toISOString(),
-  };
-}
-
-async function writeLock() {
-  await mkdir(DATA_DIR, { recursive: true });
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let stopping = false,
+  lockHeld = false,
+  requestController;
+function releaseLock() {
+  if (lockHeld) {
     try {
-      const handle = await open(LOCK_PATH, 'wx');
-      await handle.writeFile(String(process.pid), 'utf8');
-      await handle.close();
+      unlinkSync(LOCK_PATH);
+    } catch {}
+    lockHeld = false;
+  }
+}
+async function takeLock() {
+  await mkdir(DATA_DIR, { recursive: true });
+  for (let n = 0; n < 2; n++) {
+    try {
+      const h = await open(LOCK_PATH, 'wx');
+      await h.writeFile(String(process.pid));
+      await h.close();
       lockHeld = true;
       return true;
-    } catch (error) {
-      if (error?.code !== 'EEXIST') return false;
-      try {
-        const pid = Number((await readFile(LOCK_PATH, 'utf8')).trim());
-        if (pid > 0) {
-          process.kill(pid, 0);
-          return false;
-        }
-      } catch {
-        /* stale lock */
-      }
-      try {
-        await unlink(LOCK_PATH);
-      } catch {
-        /* another process may have removed it */
-      }
+    } catch (e) {
+      if (e.code !== 'EEXIST') throw e;
     }
+    try {
+      const pid = Number(await readFile(LOCK_PATH, 'utf8'));
+      if (pid > 0) {
+        process.kill(pid, 0);
+        return false;
+      }
+    } catch (e) {
+      if (e.code === 'EPERM') return false;
+    }
+    await unlink(LOCK_PATH).catch(() => {});
   }
   return false;
 }
-
-function releaseLock() {
-  if (!lockHeld) return;
-  try {
-    unlink(LOCK_PATH, () => {});
-  } catch {
-    /* ignore */
-  }
-}
-
-async function summarizeWithLlm(full, text) {
-  if (!DSH_URL || typeof fetch !== 'function') return null;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 20000);
-  try {
-    const response = await fetch(`${DSH_URL}/photo-pet/summarize`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        path: full,
-        dir: dirname(full),
-        name: basename(full),
-        text: String(text).slice(0, 3500),
-      }),
-      signal: controller.signal,
-    });
-    if (!response.ok) return null;
-    const data = await response.json();
-    const summary = typeof data.summary === 'string' ? data.summary.trim() : '';
-    return summary || null;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-async function scanFile(full, config, index, master) {
-  let info;
-  try {
-    info = await stat(full);
-  } catch {
-    return false;
-  }
-  if (!info.isFile() || info.size > config.maxFileSize) return false;
-  const previous = index[full];
-  if (previous && previous.mtimeMs === info.mtimeMs && previous.size === info.size) return false;
-
-  let text;
-  try {
-    text = await readFile(full, 'utf8');
-  } catch {
-    return false;
-  }
-  if (text.includes('\u0000')) return false;
-  const summary = (await summarizeWithLlm(full, text)) || cleanSummary(text, basename(full));
-  index[full] = { mtimeMs: info.mtimeMs, size: info.size, scannedAt: new Date().toISOString() };
-  master.files[full] = { summary, mtimeMs: info.mtimeMs, size: info.size, scannedAt: new Date().toISOString() };
-
-  const keys = Object.keys(master.files);
-  if (keys.length > 3000) {
-    for (const key of keys.slice(0, keys.length - 3000)) delete master.files[key];
-  }
-  return true;
-}
-
-async function main() {
-  await mkdir(DATA_DIR, { recursive: true });
-  if (!(await writeLock())) {
-    process.exit(0);
-  }
+export async function main() {
+  if (!(await takeLock())) return;
+  const stop = () => {
+    stopping = true;
+    requestController?.abort();
+  };
+  process.on('SIGTERM', stop);
+  process.on('SIGINT', stop);
   process.on('exit', releaseLock);
-  process.on('SIGINT', () => { stopping = true; });
-  process.on('SIGTERM', () => { stopping = true; });
-
-  const config = await ensureConfig();
-  const index = await loadJson(INDEX_PATH, {});
-  const master = await loadJson(MASTER_PATH, { version: 1, files: {}, profile: {} });
-  master.files = master.files || {};
-  master.profile = master.profile || {};
-
-  while (!stopping) {
-    const current = await ensureConfig();
-    const files = await collectFiles(current);
-    let scanned = 0;
-    for (const full of files) {
-      if (stopping) break;
-      if (scanned >= current.maxFilesPerPass) break;
-      const changed = await scanFile(full, current, index, master);
-      if (changed) {
-        scanned += 1;
-        master.profile = buildProfile(master);
-        master.updatedAt = new Date().toISOString();
-        if (scanned % 5 === 0) {
-          await saveJson(INDEX_PATH, index);
-          await saveJson(MASTER_PATH, master);
-        }
-        if (scanned % 10 === 0) await sleep(current.batchSleepMs);
+  const index = await readJson(INDEX_PATH, {});
+  const master = await readJson(MASTER_PATH, { version: 2, files: {}, profile: {} });
+  master.files ||= {};
+  master.version = 2;
+  const summaryCache = new Map(
+    Object.values(master.files)
+      .filter((f) => f.hash && f.summaryStatus === 'llm')
+      .map((f) => [f.hash, f.summary])
+  );
+  let options = await config(),
+    companion = await readJson(COMPANION_PATH, {}),
+    iterator,
+    signature = '',
+    checked = 0,
+    changed = 0;
+  let generation = 0,
+    flushed = -1,
+    flushQueue = Promise.resolve(),
+    summaryWorker = null,
+    lastTick = 0,
+    lastControl = 0;
+  async function flush(force = false) {
+    const job = flushQueue.then(async () => {
+      if (!force && flushed === generation) return;
+      const captured = generation;
+      companion = await readJson(COMPANION_PATH, {});
+      const visible = Object.entries(master.files).filter(
+        ([p]) => !companion.forgotten?.[memoryId(p)]
+      );
+      const excess = Object.keys(master.files).length - options.maxMemories;
+      if (excess > 0) {
+        for (const [p] of Object.entries(master.files)
+          .sort((a, b) => (a[1].scannedAt || '').localeCompare(b[1].scannedAt || ''))
+          .slice(0, excess))
+          delete master.files[p];
       }
-      await sleep(current.delayMs + Math.floor(Math.random() * 250));
-    }
-    await saveJson(INDEX_PATH, index);
-    await saveJson(MASTER_PATH, master);
-    if (ONCE) break;
-    await sleep(current.idleMs);
+      master.profile = buildProfile(master, companion);
+      master.updatedAt = new Date().toISOString();
+      master.scan = {
+        checked,
+        changed,
+        pending: visible.filter(([, f]) => f.summaryStatus !== 'llm').length,
+        filesPerSecond: options.filesPerSecond,
+        lastError: master.scan?.lastError || '',
+      };
+      // Write master first: a crash before index commit simply causes an incremental rescan.
+      await atomicJson(MASTER_PATH, master);
+      await atomicJson(INDEX_PATH, index);
+      flushed = captured;
+    });
+    flushQueue = job.catch(() => {});
+    return job;
   }
-  releaseLock();
+  function kickSummaries() {
+    if (summaryWorker || !DSH_URL || stopping || companion.settings?.scanPaused) return;
+    summaryWorker = (async () => {
+      while (!stopping) {
+        companion = await readJson(COMPANION_PATH, {});
+        if (companion.settings?.scanPaused) break;
+        const hashes = new Set();
+        const batch = Object.entries(master.files)
+          .filter(
+            ([p, f]) =>
+              f.summaryStatus !== 'llm' &&
+              f.excerpt &&
+              !companion.forgotten?.[memoryId(p)] &&
+              !companion.forgottenHashes?.[f.hash] &&
+              (f.retryAt || 0) <= Date.now()
+          )
+          .filter(([, f]) => {
+            if (hashes.has(f.hash)) return false;
+            hashes.add(f.hash);
+            return true;
+          })
+          .slice(0, options.summaryBatchSize);
+        if (!batch.length) break;
+        const snapshot = batch.map(([path, f], i) => ({
+          id: String(i),
+          path,
+          name: basename(path),
+          text: f.excerpt,
+          hash: f.hash,
+        }));
+        requestController = new AbortController();
+        const timeout = setTimeout(() => requestController.abort(), 25000);
+        try {
+          const response = await fetch(`${DSH_URL}/photo-pet/summarize`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ documents: snapshot.map(({ hash, ...d }) => d) }),
+            signal: requestController.signal,
+          });
+          if (!response.ok) throw new Error(`summary HTTP ${response.status}`);
+          const { summaries } = await response.json();
+          if (!Array.isArray(summaries)) throw new Error('invalid batch summary');
+          for (const item of snapshot) {
+            const file = master.files[item.path];
+            if (!file || file.hash !== item.hash) continue;
+            const result = summaries.find(
+              (x) => x.id === item.id && typeof x.summary === 'string' && x.summary.trim()
+            );
+            if (result) {
+              const summary = compact(result.summary, 400);
+              summaryCache.set(file.hash, summary);
+              for (const sibling of Object.values(master.files))
+                if (sibling.hash === file.hash) {
+                  sibling.summary = summary;
+                  sibling.summaryStatus = 'llm';
+                  delete sibling.excerpt;
+                  delete sibling.retryAt;
+                }
+            } else file.retryAt = Date.now() + 60000;
+          }
+          master.scan = { ...master.scan, lastError: '' };
+        } catch (e) {
+          for (const item of snapshot) {
+            const f = master.files[item.path];
+            if (f?.hash === item.hash) f.retryAt = Date.now() + 60000;
+          }
+          master.scan = { ...master.scan, lastError: compact(e.message, 160) };
+        } finally {
+          clearTimeout(timeout);
+          requestController = null;
+          generation++;
+          await flush();
+        }
+        await sleep(450);
+      }
+    })().finally(() => {
+      summaryWorker = null;
+    });
+  }
+  try {
+    while (!stopping) {
+      options = await config();
+      companion = await readJson(COMPANION_PATH, {});
+      if (companion.settings?.scanPaused) {
+        await sleep(500);
+        continue;
+      }
+      const nextSignature = JSON.stringify([options.roots, options.extensions]);
+      if (!iterator || nextSignature !== signature) {
+        iterator = walk(options);
+        signature = nextSignature;
+      }
+      let count = 0,
+        done = false;
+      while (!stopping && count < options.maxFilesPerPass) {
+        if (Date.now() - lastControl >= 1000) {
+          companion = await readJson(COMPANION_PATH, {});
+          lastControl = Date.now();
+          if (companion.settings?.scanPaused) break;
+        }
+        const entry = await iterator.next();
+        if (entry.done) {
+          done = true;
+          break;
+        }
+        await sleep(Math.max(0, 1000 / options.filesPerSecond - (Date.now() - lastTick)));
+        lastTick = Date.now();
+        count++;
+        checked++;
+        const full = entry.value,
+          id = memoryId(full);
+        if (companion.forgotten?.[id]) {
+          delete master.files[full];
+          generation++;
+          continue;
+        }
+        let info;
+        try {
+          info = await stat(full);
+        } catch {
+          continue;
+        }
+        if (!info.isFile() || info.size > options.maxFileSize) continue;
+        const previous = index[full];
+        if (
+          previous &&
+          previous.mtimeMs === info.mtimeMs &&
+          previous.size === info.size &&
+          previous.version === 2
+        )
+          continue;
+        let text;
+        try {
+          text = await readFile(full, 'utf8');
+        } catch {
+          continue;
+        }
+        if (text.includes('\u0000')) continue;
+        const hash = digest(text),
+          old = master.files[full];
+        if (companion.forgottenHashes?.[hash]) {
+          delete master.files[full];
+          index[full] = { mtimeMs: info.mtimeMs, size: info.size };
+          generation++;
+          continue;
+        }
+        index[full] = {
+          version: 2,
+          mtimeMs: info.mtimeMs,
+          size: info.size,
+          scannedAt: new Date().toISOString(),
+        };
+        master.files[full] = {
+          ...old,
+          hash,
+          mtimeMs: info.mtimeMs,
+          size: info.size,
+          project: basename(dirname(full)),
+          scannedAt: index[full].scannedAt,
+          ...(old?.hash === hash
+            ? {}
+            : {
+                summary: `${basename(full)}：${compact(text, 320)}`,
+                excerpt: compact(text, 1200),
+                summaryStatus: 'local',
+                retryAt: 0,
+              }),
+        };
+        if (summaryCache.has(hash)) {
+          const f = master.files[full];
+          f.summary = summaryCache.get(hash);
+          f.summaryStatus = 'llm';
+          delete f.excerpt;
+        }
+        changed++;
+        generation++;
+        kickSummaries();
+        if (count % 20 === 0) await flush();
+      }
+      await flush(true);
+      kickSummaries();
+      if (process.env.PHOTO_PET_SCAN_ONCE === '1') break;
+      if (done) {
+        iterator = null;
+        await sleep(options.idleMs);
+      }
+    }
+    if (summaryWorker) await summaryWorker;
+    await flush(true);
+  } finally {
+    releaseLock();
+    process.off('SIGTERM', stop);
+    process.off('SIGINT', stop);
+    process.off('exit', releaseLock);
+  }
 }
-
-main().catch(() => {
-  releaseLock();
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href)
+  main().catch((e) => {
+    releaseLock();
+    console.error(e.message);
+    process.exitCode = 1;
+  });

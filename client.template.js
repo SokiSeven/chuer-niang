@@ -37,13 +37,6 @@ window.__ModuleLoader__.load({
       },
     };
 
-    const IDLE_HINTS = [
-      '主人正在 DSH 里忙活，你凑过去反驳一句。',
-      '主人又敲了半天键盘，你絮叨一句。',
-      '主人在改配置，你嘴硬地挑刺一句。',
-      '主人半天没理你，你土里土气地喊一句。',
-    ];
-
     const FOOT_MARKS = [
       { left: '34%', top: '58%', delay: '0s', size: 20 },
       { left: '48%', top: '54%', delay: '0.08s', size: 22, sock: true },
@@ -80,7 +73,7 @@ window.__ModuleLoader__.load({
       .pp-bubble{position:absolute;right:0;left:auto;bottom:calc(100% + 6px);max-width:min(360px,calc(100vw - 40px));
         padding:8px 12px;border-radius:12px;background:var(--dsw-alias-bg-overlay);color:var(--dsw-alias-label-primary);
         border:1px solid var(--dsw-alias-border-l1);box-shadow:0 6px 24px rgba(0,0,0,.16);
-        font-size:13px;line-height:1.45;white-space:pre-wrap;pointer-events:none;animation:pp-pop .18s ease-out;}
+        font-size:13px;line-height:1.45;white-space:pre-wrap;pointer-events:auto;animation:pp-pop .18s ease-out;}
       .pp-bubble:after{content:"";position:absolute;right:34px;left:auto;top:100%;width:10px;height:10px;
         transform:translateY(-5px) rotate(45deg);background:var(--dsw-alias-bg-overlay);
         border-right:1px solid var(--dsw-alias-border-l1);border-bottom:1px solid var(--dsw-alias-border-l1);}
@@ -153,6 +146,25 @@ window.__ModuleLoader__.load({
       @keyframes pp-shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-3px)}40%{transform:translateX(3px)}60%{transform:translateX(-2px)}80%{transform:translateX(2px)}}
       @keyframes pp-float-up{from{opacity:0;transform:translate(-50%,8px) scale(.8)}30%{opacity:1}to{opacity:0;transform:translate(-50%,-42px) scale(1.2)}}
       @media (prefers-reduced-motion: reduce){.pp-stage,.pp-img,.pp-dots i{animation:none !important}}
+      .pp-bubble-actions,.pp-panel-tabs,.pp-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+      .pp-root button,.pp-root input,.pp-root textarea,.pp-root select{font:inherit}
+      .pp-root button{cursor:pointer;border:1px solid var(--dsw-alias-border-l1,#475569);border-radius:7px;padding:4px 7px;background:var(--dsw-alias-bg-overlay,#172026);color:var(--dsw-alias-label-primary,#eef5f5)}
+      .pp-root button:disabled{opacity:.45;cursor:default}
+      .pp-panel{box-sizing:border-box;position:fixed;right:16px;bottom:16px;width:min(370px,calc(100vw - 32px));max-height:72vh;overflow:auto;padding:16px;border-radius:16px;background:var(--dsw-alias-bg-overlay,#172026);color:var(--dsw-alias-label-primary,#eef5f5);border:1px solid var(--dsw-alias-border-l1,#475569);box-shadow:0 12px 48px #0005;z-index:10;cursor:default;user-select:text;touch-action:auto;font-size:13px;line-height:1.55}
+      .pp-panel input,.pp-panel textarea{box-sizing:border-box;width:100%;padding:8px;margin:6px 0;border-radius:8px;border:1px solid var(--dsw-alias-border-l1,#475569);color:inherit;background:var(--dsw-alias-bg-overlay,#172026)}
+      .pp-memory{border-top:1px solid var(--dsw-alias-border-l1,#475569);padding:10px 0;overflow-wrap:anywhere}
+      .pp-note{opacity:.72;font-size:12px;white-space:pre-wrap}
+      .pp-feeling{position:absolute;left:0;bottom:10%;font-size:20px;z-index:4;pointer-events:none}
+      .pp-emotion-happy .pp-stage{animation:pp-happy 2s ease-in-out infinite}
+      .pp-emotion-annoyed .pp-stage{animation:pp-dodge 2s ease-out}
+      .pp-emotion-sleepy .pp-stage{animation:pp-doze 6s ease-in-out infinite;transform-origin:50% 100%}
+      .pp-emotion-bored .pp-stage{animation:pp-sway 5s ease-in-out infinite}
+      .pp-changing .pp-img{animation:pp-change .65s ease-out!important}
+      @keyframes pp-happy{0%,100%{transform:translateY(0) rotate(-.5deg)}50%{transform:translateY(-8px) rotate(.5deg)}}
+      @keyframes pp-doze{0%,100%{transform:rotate(0) scaleY(1)}50%{transform:rotate(3deg) scaleY(.97)}}
+      @keyframes pp-dodge{0%,100%{transform:translateX(0)}20%,75%{transform:translateX(26px) rotate(3deg)}}
+      @keyframes pp-change{0%{opacity:.15;filter:brightness(2)}100%{opacity:1;filter:brightness(1)}}
+      @media(prefers-reduced-motion:reduce){.pp-root *{animation:none!important;transition:none!important}}
     `;
 
     function pick(list) {
@@ -218,7 +230,7 @@ window.__ModuleLoader__.load({
         });
         if (!response.ok) return null;
         const data = await response.json();
-        return typeof data.text === 'string' && data.text.trim() ? data.text.trim() : null;
+        return typeof data.text === 'string' && data.text.trim() ? { ...data, text: data.text.trim() } : null;
       } catch {
         return null;
       }
@@ -235,6 +247,25 @@ window.__ModuleLoader__.load({
         const [reaction, setReaction] = React.useState('');
         const [walletOpen, setWalletOpen] = React.useState(false);
         const [wallet, setWallet] = React.useState(null);
+        const [companion, setCompanion] = React.useState(null);
+        const [panel, setPanel] = React.useState('');
+        const [memoryData, setMemoryData] = React.useState({ memories: [], total: 0 });
+        const [note, setNote] = React.useState('');
+        const [reply, setReply] = React.useState('');
+        const [query, setQuery] = React.useState('');
+        const [notice, setNotice] = React.useState('');
+        const [busy, setBusy] = React.useState(false);
+        const [changing, setChanging] = React.useState(false);
+        const companionRef = React.useRef(null);
+        const panelRef = React.useRef('');
+        const currentGeneration = React.useRef('');
+        const lastSpoke = React.useRef(Date.now());
+        const changeTimer = React.useRef(0);
+        const delayedEvent = React.useRef(0);
+        const alive = React.useRef(true);
+        const unlockedBefore = React.useRef(null);
+        const settingsQueue = React.useRef(Promise.resolve());
+        const settingsVersion = React.useRef(0);
         const dragRef = React.useRef(null);
         const rootRef = React.useRef(null);
         const imgRef = React.useRef(null);
@@ -258,13 +289,81 @@ window.__ModuleLoader__.load({
         const eyeOpacity = 0.14 + rankIndex * 0.14;
         const eyeBlur = Math.max(0.6, 2.8 - rankIndex * 0.35);
 
-        const say = React.useCallback((text, duration) => {
+        const say = React.useCallback((text, duration, metadata = {}) => {
           if (!text) return;
           recentLines.current.push(text);
           if (recentLines.current.length > 6) recentLines.current.splice(0, recentLines.current.length - 6);
           clearTimeout(bubbleTimer.current);
-          setBubble({ text, id: Date.now() });
-          bubbleTimer.current = setTimeout(() => setBubble(null), duration || 3200);
+          lastSpoke.current = Date.now();
+          currentGeneration.current = metadata.generationId || '';
+          setBubble({ text, id: Date.now(), ...metadata });
+          bubbleTimer.current = setTimeout(() => { if (!panelRef.current) setBubble(null); }, duration || 12000);
+        }, []);
+
+        async function companionAction(action, extra = {}) {
+          const response = await fetch('/photo-pet/companion', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...extra }) });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || '操作失败');
+          return data;
+        }
+        function acceptCompanion(data) {
+          if (!alive.current) return;
+          companionRef.current = data; setCompanion(data);
+          if (unlockedBefore.current === false && data.socksUnlocked) {
+            setChanging(true); clearTimeout(changeTimer.current);
+            changeTimer.current = setTimeout(() => setChanging(false), 700);
+            say('白袜解锁咧！以后想换，就来俺衣柜挑喵。', 10000);
+          }
+          unlockedBefore.current = data.socksUnlocked;
+        }
+        async function refreshCompanion() {
+          try { const r = await fetch('/photo-pet/companion', { credentials: 'same-origin' }); if (r.ok) acceptCompanion(await r.json()); } catch { /* host unavailable */ }
+        }
+        async function openPanel(name) {
+          setNotice(''); panelRef.current = name; setPanel(name); clearTimeout(bubbleTimer.current);
+          if (name === 'memories' || name === 'sources') {
+            try { setMemoryData(await companionAction(name, name === 'sources' ? { generationId: currentGeneration.current } : {})); }
+            catch { setNotice('记忆暂时读不到，请确认插件已更新并重启 DSH。'); }
+          }
+        }
+        function closePanel() { panelRef.current = ''; setPanel(''); clearTimeout(bubbleTimer.current); bubbleTimer.current = setTimeout(() => setBubble(null), 12000); }
+        async function changeSettings(patch) {
+          const version = ++settingsVersion.current;
+          const previous = companionRef.current || {};
+          acceptCompanion({ ...previous, settings: { ...previous.settings, ...patch } });
+          const job = settingsQueue.current.then(() => companionAction('settings', { settings: patch }));
+          settingsQueue.current = job.catch(() => {});
+          try {
+            const saved = await job;
+            if (version === settingsVersion.current) acceptCompanion(saved);
+          } catch {
+            if (version === settingsVersion.current) { await refreshCompanion(); setNotice('设置没有保存成功，请重试。'); }
+          }
+        }
+
+        async function forget(ids) {
+          try {
+            await companionAction('forget', { ids });
+            currentGeneration.current = ''; recentLines.current = []; setBubble(null);
+            setMemoryData(d => ({ ...d, memories: d.memories.filter(m => !ids.includes(m.id)), total: Math.max(0, d.total - ids.length) }));
+            setNotice('已忘掉。文件记忆不会在下次扫描时重新记回来。');
+          } catch { setNotice('没有忘掉成功，请重试。'); }
+        }
+        async function followUp() {
+          if (llmBusy.current) return;
+          llmBusy.current = true; setBusy(true); setNotice('');
+          const previous = bubble?.text || '';
+          const result = await requestLlmLine(`主人接着你刚才的话说：${reply.trim().slice(0, 240) || '接着说说，具体一点。'}。你上一句是：${previous}`, recentLines.current.slice(-6));
+          llmBusy.current = false;
+          if (!alive.current) return;
+          setBusy(false);
+          if (result) { say(result.text, 18000, result); setReply(''); }
+          else setNotice('这次没接上话，稍等一下再试。');
+        }
+        React.useEffect(() => {
+          alive.current = true; refreshCompanion();
+          const timer = setInterval(refreshCompanion, 15000);
+          return () => { alive.current = false; clearInterval(timer); clearTimeout(changeTimer.current); clearTimeout(delayedEvent.current); };
         }, []);
 
         React.useEffect(() => {
@@ -273,11 +372,11 @@ window.__ModuleLoader__.load({
           });
           const timer = setTimeout(() => say(pick(lines.hello), 3200), 900);
           const firstLlm = setTimeout(async () => {
-            if (llmBusy.current) return;
+            if (!companionRef.current || companionRef.current.settings?.chatter === false || panelRef.current || document.visibilityState === 'hidden' || llmBusy.current) return;
             llmBusy.current = true;
             const text = await requestLlmLine('主人刚打开 DSH，你按人设嘴硬地挑一句刺。', recentLines.current.slice(-6));
             llmBusy.current = false;
-            if (text) say(text, 10000);
+            if (text && alive.current && !panelRef.current && companionRef.current?.settings?.chatter !== false) say(text.text, 14000, text);
           }, 3000);
           return () => {
             unsubscribe();
@@ -311,17 +410,16 @@ window.__ModuleLoader__.load({
 
         React.useEffect(() => {
           const timer = setInterval(async () => {
-            if (llmBusy.current) return;
-            if (document.visibilityState === 'hidden') return;
+            const settings = companionRef.current?.settings;
+            if (!settings || settings.chatter === false || panelRef.current || llmBusy.current || document.visibilityState === 'hidden') return;
+            if (Date.now() - lastSpoke.current < (settings.chatterSeconds || 30) * 1000) return;
             llmBusy.current = true;
-            const text = await requestLlmLine(pick(IDLE_HINTS), recentLines.current.slice(-6));
+            const result = await requestLlmLine('围绕你记得的具体事情，自然说点新内容。', recentLines.current.slice(-6));
             llmBusy.current = false;
-            if (text) {
-              say(text, 10000);
-              return;
-            }
-            say(pick(lines.idle), 10000);
-          }, 10000);
+            if (!alive.current || panelRef.current || companionRef.current?.settings?.chatter === false) return;
+            if (result) say(result.text, 14000, result);
+            else say(pick(lines.idle), 10000);
+          }, 1000);
           return () => clearInterval(timer);
         }, [lines, say]);
 
@@ -330,8 +428,9 @@ window.__ModuleLoader__.load({
             const response = await fetch('/photo-pet/wallet', { credentials: 'same-origin' });
             if (!response.ok) return;
             const data = await response.json();
+            if (!alive.current) return;
             setWallet(data);
-            if (Array.isArray(data.events) && data.events.length) say(data.events[0], 5200);
+            if (!panelRef.current && Array.isArray(data.events) && data.events.length) say(data.events[0], 10000);
           } catch {
             /* wallet is optional */
           }
@@ -364,8 +463,10 @@ window.__ModuleLoader__.load({
             });
             if (response.ok) {
               const data = await response.json();
-              if (data.line) say(data.line, 3200);
-              if (data.event) setTimeout(() => say(data.event, 4200), 1500);
+              if (!alive.current) return;
+              if (data.companion) acceptCompanion(data.companion);
+              if (data.line) say(data.line, 10000);
+              if (data.event) { clearTimeout(delayedEvent.current); delayedEvent.current = setTimeout(() => say(data.event, 10000), 1500); }
               if (Number.isFinite(data.affinity)) {
                 setWallet((current) => (current ? { ...current, affinity: data.affinity, level: data.level } : current));
               }
@@ -445,15 +546,15 @@ window.__ModuleLoader__.load({
           h('style', { key: 'pp-style', dangerouslySetInnerHTML: { __html: CSS } }),
           h('div', {
             ref: rootRef,
-            className: 'pp-root' + (dragging ? ' pp-dragging' : ''),
+            className: 'pp-root pp-emotion-' + (companion?.emotion || 'calm') + (changing ? ' pp-changing' : '') + (dragging ? ' pp-dragging' : ''),
             style,
-            role: 'button',
+            role: 'group',
             tabIndex: 0,
             'aria-label': lines.aria,
             onPointerDown,
             onPointerMove,
             onPointerUp,
-            onPointerCancel: onPointerUp,
+            onPointerCancel: () => { dragRef.current = null; setDragging(false); },
             onDoubleClick: (event) => { event.preventDefault(); resetPosition(); },
             onContextMenu: (event) => {
               event.preventDefault();
@@ -465,16 +566,71 @@ window.__ModuleLoader__.load({
             },
             onKeyDown: (event) => {
               if (event.key === 'Escape') {
-                setWalletOpen(false);
+                setWalletOpen(false); closePanel();
                 return;
               }
-              if (event.key === 'Enter' || event.key === ' ') {
+              if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
                 event.preventDefault();
                 reactTo('body');
               }
             },
           },
-            bubble ? h('div', { className: 'pp-bubble', key: bubble.id }, bubble.text) : null,
+            bubble ? h('div', {
+              className: 'pp-bubble', key: bubble.id,
+              onPointerDown: e => e.stopPropagation(), onDoubleClick: e => e.stopPropagation(), onContextMenu: e => e.stopPropagation(),
+              onMouseEnter: () => clearTimeout(bubbleTimer.current),
+              onMouseLeave: () => { if (!panelRef.current) bubbleTimer.current = setTimeout(() => setBubble(null), 6000); },
+            }, h('div', { role: 'status' }, bubble.text),
+              h('div', { className: 'pp-bubble-actions' },
+                h('button', { type: 'button', onClick: () => openPanel('reply') }, '接着聊'),
+                bubble.generationId ? h('button', { type: 'button', onClick: () => openPanel('sources') }, '参考记忆') : null,
+                h('button', { type: 'button', onClick: () => openPanel('memories') }, '记忆'),
+                h('button', { type: 'button', onClick: () => openPanel('wardrobe') }, '衣柜')
+              )) : null,
+            panel ? h('section', {
+              className: 'pp-panel', role: 'dialog', 'aria-label': '雏儿娘陪伴面板',
+              onPointerDown: e => e.stopPropagation(), onDoubleClick: e => e.stopPropagation(),
+              onContextMenu: e => { e.preventDefault(); e.stopPropagation(); },
+            },
+              h('button', { type: 'button', style: { float: 'right' }, onClick: closePanel, 'aria-label': '关闭面板' }, '×'),
+              h('strong', null, '雏儿娘的小本本'),
+              h('nav', { className: 'pp-panel-tabs' }, ...[['reply','接话'],['memories','记忆'],['wardrobe','衣柜'],['settings','设置']].map(([key,label]) => h('button', { type: 'button', key, onClick: () => openPanel(key), 'aria-pressed': panel === key }, label))),
+              notice ? h('p', { role: 'status' }, notice) : null,
+              panel === 'reply' ? h('div', null,
+                h('p', null, bubble?.text || '想聊啥？俺听着呢。'),
+                h('textarea', { value: reply, maxLength: 240, rows: 3, placeholder: '接着刚才的话聊……', 'aria-label': '接话内容', onChange: e => setReply(e.target.value) }),
+                h('button', { type: 'button', disabled: busy, onClick: followUp }, busy ? '想一想……' : '接着说')
+              ) : null,
+              panel === 'sources' || panel === 'memories' ? h('div', null,
+                h('p', { className: 'pp-note' }, panel === 'sources' ? '这些是生成本句话时提供的参考，不表示每条都实际用于台词。' : `已记住 ${memoryData.total} 条。扫描 ${memoryData.scan?.checked || 0} 个候选文件，待摘要 ${memoryData.scan?.pending || 0} 条。`),
+                panel === 'memories' ? h('div', null,
+                  h('input', { value: query, placeholder: '搜索项目、文件名或内容', 'aria-label': '搜索记忆', onChange: e => setQuery(e.target.value) }),
+                  h('button', { type: 'button', onClick: async () => { try { setMemoryData(await companionAction('memories', { query })); } catch { setNotice('搜索失败'); } } }, '搜索'),
+                  h('textarea', { value: note, rows: 2, maxLength: 400, placeholder: '主动告诉她一件想让她记住的事', 'aria-label': '新增记忆', onChange: e => setNote(e.target.value) }),
+                  h('button', { type: 'button', disabled: !note.trim(), onClick: async () => { try { await companionAction('remember', { text: note }); setNote(''); await openPanel('memories'); setNotice('记住咧，这条会优先参考。'); } catch { setNotice('记忆没有保存成功'); } } }, '记住这件事')
+                ) : null,
+                ...memoryData.memories.map(m => h('article', { className: 'pp-memory', key: m.id },
+                  h('strong', null, m.source === 'manual' ? '主动记忆' : `${m.project} / ${m.name}`),
+                  h('p', null, m.summary), h('div', { className: 'pp-note' }, m.quality === 'local' ? '本地摘录，等待模型摘要' : m.source === 'manual' ? '你主动告诉她的' : '文档摘要'),
+                  h('button', { type: 'button', onClick: () => forget([m.id]) }, '忘掉这条'))),
+                !memoryData.memories.length ? h('p', null, '这里暂时没有记忆。') : null,
+                panel === 'memories' && memoryData.memories.length < memoryData.total ? h('button', { type: 'button', onClick: async () => { try { const next = await companionAction('memories', { query, offset: memoryData.memories.length }); setMemoryData(d => ({ ...next, memories: [...d.memories, ...next.memories] })); } catch { setNotice('加载失败'); } } }, '加载更多') : null
+              ) : null,
+              panel === 'wardrobe' ? h('div', null,
+                h('p', null, companion?.socksUnlocked ? '白袜已永久解锁，可以随时换。' : '好感度达到 100 解锁白袜。'),
+                ...[['auto','自动换装'],['normal','日常形象'],['socks','白袜形象']].map(([outfit,label]) => h('button', { key: outfit, type: 'button', disabled: outfit === 'socks' && !companion?.socksUnlocked, 'aria-pressed': companion?.outfit === outfit,
+                  onClick: async () => { try { acceptCompanion(await companionAction('outfit', { outfit })); setChanging(true); clearTimeout(changeTimer.current); changeTimer.current = setTimeout(() => setChanging(false), 700); setNotice('换好咧。'); } catch { setNotice('没有换装成功'); } }
+                }, label))
+              ) : null,
+              panel === 'settings' ? h('div', null,
+                h('p', null, '当前心情：' + ({ calm:'平静',happy:'开心',annoyed:'闹别扭',sleepy:'困倦',bored:'无聊' }[companion?.emotion] || '平静')),
+                h('label', null, h('input', { type: 'checkbox', style: { width:'auto' }, checked: companion?.settings?.chatter !== false, onChange: e => changeSettings({ chatter: e.target.checked }) }), '自动自言自语'),
+                h('p', null, '说话间隔'),
+                h('select', { 'aria-label':'说话间隔', value: companion?.settings?.chatterSeconds || 30, onChange: e => changeSettings({ chatterSeconds: Number(e.target.value) }) }, ...[15,30,60,120,300].map(n => h('option', { key:n,value:n }, `${n} 秒`))),
+                h('p', null, h('label', null, h('input', { type:'checkbox',style:{width:'auto'},checked:!!companion?.settings?.scanPaused,onChange:e=>changeSettings({scanPaused:e.target.checked}) }), '暂停扫描与摘要')),
+                h('p', { className: 'pp-note' }, '扫描目标约 20 个候选文件/秒；模型摘要独立排队。')
+              ) : null
+            ) : null,
             h('div', {
               className: 'pp-rank',
               style: { '--rank-color': rankColor },
@@ -499,6 +655,7 @@ window.__ModuleLoader__.load({
                 onClick: () => setWalletOpen(false),
               }, '×'),
               h('div', { className: 'pp-wallet-title' }, '钱包 / 好感度'),
+              h('div', { className: 'pp-actions' }, h('button', { type:'button',onClick:()=>openPanel('memories') },'记忆'), h('button',{type:'button',onClick:()=>openPanel('wardrobe')},'衣柜'),h('button',{type:'button',onClick:()=>openPanel('settings')},'设置')),
               h('div', { className: 'pp-wallet-row' },
                 h('span', null, '段位'),
                 h('b', { style: { color: rankColor } }, rankName)),
@@ -593,11 +750,12 @@ window.__ModuleLoader__.load({
               h('img', {
                 ref: imgRef,
                 className: 'pp-img',
-                src: maxAffinity ? PET_SOCKS_URL : PET_URL,
+                src: companion ? (companion.wearing === 'socks' ? PET_SOCKS_URL : PET_URL) : (maxAffinity ? PET_SOCKS_URL : PET_URL),
                 alt: '',
                 draggable: false,
                 onDragStart: (event) => event.preventDefault(),
               }),
+              h('span', { className: 'pp-feeling', 'aria-hidden': true }, { happy:'♪',annoyed:'💢',sleepy:'Zzz',bored:'…' }[companion?.emotion] || ''),
               h('div', { className: 'pp-shadow', 'aria-hidden': true })
             )
           )

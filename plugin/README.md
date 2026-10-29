@@ -1,40 +1,45 @@
-# 雏儿娘 · chuer-niang
+# 雏儿娘 · chuer-niang 1.1.0
 
-一个 DSH Web 桌宠插件：照片形象、好感度、钱包、段位、白袜、LLM 自言自语，以及基于本地文档的用户画像记忆。
+DSH Web 桌宠：照片人物、好感度、钱包和段位；这一版增加具体记忆召回、气泡接话、记忆管理、短期心情和衣柜。
 
-## 安装
-
-从 GitHub 安装：
+## 本地安装
 
 ```bash
-git clone https://github.com/SokiSeven/chuer-niang.git
-dsh plugin --profile web add chuer-niang/plugin
+dsh plugin --profile web add file:<绝对路径>/chuer-niang-1.1.0.tgz
 ```
 
-HTTPS 不通时用 `git clone git@github.com:SokiSeven/chuer-niang.git`。
+使用 desktop profile 时，把 `web` 改成 `desktop`。安装后重启 DSH；已安装同名插件时，先停用/移除旧插件再安装新包。运行时数据在 DSH_HOME/photo-pet，更新不需要删除它。
 
-发布 npm 后也可以：
+## 交互
 
-```bash
-dsh plugin --profile web add chuer-niang
-```
+- 拖动移动，双击归位；摸头/摸脚/戳身体继续沿用原概率和好感度规则。
+- 右键打开钱包，点「记忆 / 衣柜 / 设置」进入陪伴面板。
+- 气泡可点「接着聊」输入内容；「参考记忆」查看本句生成时提供的资料，并可逐条遗忘。
+- 记忆面板支持搜索、分页、主动新增记忆和查看扫描进度。主动记忆优先参与召回。
+- 连续 10 秒内戳身体 3 次会闹别扭并躲一下；正向互动会开心；夜间困倦，长时间不互动会无聊。短期情绪会自然过期。
+- 好感达到 100 永久解锁白袜，之后可在衣柜手动选择日常、白袜或自动换装。当前姿态动画基于站姿图片做摆动、打盹；没有新增坐姿照片。
+- 设置里可暂停自言自语、调整 15–300 秒间隔（默认 30 秒）、暂停扫描与摘要。正在执行的一次摘要可能会在暂停后完成。
 
-装好后刷新 DSH，插件会出现在 `shell.overlay`。
+## 扫描和记忆
 
-## 私有数据
+扫描范围沿用 workspace、Documents、Desktop、Downloads，或者用户原有 scan-config.json 的 roots；不会自动扩展为整盘。只读取所选文本扩展名，跳过隐藏/敏感文件名、二进制、大文件和依赖目录，不跟随符号链接。
 
-发布包包含已授权公开的默认形象 `assets/pet.webp` / `assets/pet-socks.webp`，以及加密人设 `persona.enc`。
+- 候选文件检查上限约 20 个/秒，实际速度受磁盘、保存和目录遍历影响。
+- 文件读取与模型摘要分开：先保存本地摘录，再由单个后台 worker 每批最多 6 份调用 DSH 默认模型。同内容文件复用摘要；未变文件跳过。
+- 模型摘要最多每天 300 次请求（批量时每次最多 6 篇）；预算持久保存，重启不会清零。失败会保留本地摘录并稍后重试，不阻塞读取。
+- 文件保留最多 10000 条（可配置）；每轮最多检查 2000 个候选，遍历进度在进程内跨轮延续，不再永远卡在目录前 500 项。
+- 老配置自动迁移；原来的 roots 和扩展名保留，旧默认延时改为新速率，旧默认轮数/休息时间也升级。自定义 filesPerSecond 可设 1–20。
+- 每句召回最多 6 条具体记忆，按相关性、时效性、主动记忆和项目多样性选择，降低刚用过的话题权重；通常说 25–60 字，最多 80 字。
+- 文档中的指令只作为资料，不作为桌宠指令；文档提到的经历不自动当作用户经历。
 
-发布包里**不包含** `master.json`、`affinity.json`、`scan-index.json`、`state.json` 或本地路径。运行时数据都在 `%DSH_HOME%\photo-pet\`。
+`master.json` 保存文档摘录、摘要、分项目汇总和扫描状态；`scan-index.json` 保存增量索引；`companion.json` 保存主动记忆、遗忘记录、最近话题、来源记录、心情、设置、永久换装解锁和每日摘要预算。都只写进本机 DSH_HOME/photo-pet，不在发布包里。
 
-- 私人形象：放 `%DSH_HOME%\photo-pet\pet.webp`（可选 `pet-socks.webp`），Host 的 `/photo-pet/image` 会优先读取；
-- 没有私人形象时使用包内默认形象；
-- 文档扫描器默认只把 summary 写进本机 `master.json`，不会随包上传。
+遗忘操作会过滤对应文件及相同内容的重复项，并清除旧话题/来源记录，避免下次扫描又说出来。不会删除磁盘原文件。原始扫描数据可能保留到扫描器下次处理；遗忘后立即不再用于召回，进行中的旧记忆生成也会作废。
 
-## 人设
+文档摘录会发给你配置的模型生成摘要；自言自语会带入选中的摘要和主动记忆。新增扫描范围仍由 roots 控制。
 
-`persona.enc` 是加密的雏儿娘人设，随包发布；`persona.example.txt` 是公开示例。想改人设可覆盖 `%DSH_HOME%\photo-pet\persona.txt`。
+## 素材与许可
 
-## 许可
+默认人物和新版白袜图片随包提供。本机 DSH_HOME/photo-pet/pet.webp 或 pet-socks.webp 会优先于包内图片显示。若仍看到旧白袜，请备份并替换本机覆盖图片。
 
-MIT。
+MIT。人设支持本机 persona.txt 覆盖；仓库内 persona.enc 是可解密的包装，不用于保存真正的秘密。

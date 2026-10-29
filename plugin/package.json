@@ -1,6 +1,6 @@
 {
   "name": "chuer-niang",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "type": "module",
   "description": "雏儿娘：DSH Web UI 照片桌宠，带好感度、钱包、段位、白袜和用户画像记忆。",
   "license": "MIT",
@@ -13,7 +13,13 @@
   "bugs": {
     "url": "https://github.com/SokiSeven/chuer-niang/issues"
   },
-  "keywords": ["dsh", "plugin", "desktop-pet", "photo", "chuer-niang"],
+  "keywords": [
+    "dsh",
+    "plugin",
+    "desktop-pet",
+    "photo",
+    "chuer-niang"
+  ],
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
@@ -30,6 +36,7 @@
     "persona.enc",
     "persona-crypto.mjs",
     "scanner.mjs",
+    "memory.mjs",
     "assets/*.webp",
     "README.md",
     "LICENSE"
@@ -43,5 +50,9 @@
       "platform": "web",
       "immediately": true
     }
+  },
+  "scripts": {
+    "test": "node --test ../tests/*.test.mjs",
+    "check": "node --check index.js && node --check scanner.mjs && node --check memory.mjs && node --check client.js"
   }
 }

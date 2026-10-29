@@ -1,6 +1,6 @@
 # 发布检查清单
 
-插件包名：`chuer-niang`，版本：`1.0.1`。
+插件包名：`chuer-niang`，版本：`1.1.0`。
 
 ## 1. 打 tarball
 
@@ -9,11 +9,11 @@ cd pet/plugin
 npm pack --pack-destination ../releases
 ```
 
-产物：`pet/releases/chuer-niang-1.0.1.tgz`。
+产物：`pet/releases/chuer-niang-1.1.0.tgz`。
 
 发布前检查 `npm pack --dry-run --json` 的文件列表，包里只应有：
 
-- `index.js` / `client.js` / `scanner.mjs` / `persona-crypto.mjs`
+- `index.js` / `client.js` / `scanner.mjs` / `memory.mjs` / `persona-crypto.mjs`
 - `cordis.patch.yml` / `package.json` / `README.md`
 - `persona.enc` / `persona.example.txt`
 - `locale/*.json` / `icon.png`
@@ -65,10 +65,10 @@ HTTPS 不通时用 SSH 克隆。
 
 ## 5. 本地分享 tarball
 
-对方拿到 `chuer-niang-1.0.1.tgz` 后：
+对方拿到 `chuer-niang-1.1.0.tgz` 后：
 
 ```bash
-dsh plugin --profile web add file:<绝对路径>/chuer-niang-1.0.1.tgz
+dsh plugin --profile web add file:<绝对路径>/chuer-niang-1.1.0.tgz
 ```
 
 ## 6. 发布后验证
